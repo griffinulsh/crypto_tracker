@@ -1,6 +1,7 @@
 open Lwt.Infix
 open Cohttp_lwt_unix
 open Yojson.Basic.Util
+open Postgresql
 
 (* Fetch the current price for a specific symbol from Binance API *)
 let fetch_binance_price symbol =
@@ -14,19 +15,13 @@ let fetch_binance_price symbol =
       Printf.printf "Error: 'price' field missing or null for symbol: %s\n" symbol;
       nan  (* Return NaN to indicate failure *)
 
-(* Write the fetched prices to a CSV file *)
-let write_prices_to_csv filename btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price =
-  let time_now () =
-    let tm = Unix.localtime (Unix.gettimeofday ()) in
-    Printf.sprintf "%04d-%02d-%02d %02d:%02d:%02d"
-      (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday tm.tm_hour tm.tm_min tm.tm_sec  (* Format the timestamp as YYYY-MM-DD HH:MM:SS *)
+(* Insert the fetched prices into PostgreSQL database *)
+let insert_prices_to_db conn btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price =
+  let query = Printf.sprintf
+    "INSERT INTO prices (timestamp, btc_price, eth_price, sol_price, bnb_price, ada_price, xrp_price, dot_price) VALUES (NOW(), %f, %f, %f, %f, %f, %f, %f);"
+    btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price
   in
-  let header_written = Sys.file_exists filename && (Unix.stat filename).st_size > 0 in  (* Check if the file exists and is non-empty *)
-  let oc = open_out_gen [Open_creat; Open_text; Open_append] 0o666 filename in
-  if not header_written then Printf.fprintf oc "timestamp (date/time),btc,eth,sol,bnb,ada,xrp,dot\n";  (* Write header if the file is new or empty *)
-  Printf.fprintf oc "%s,%f,%f,%f,%f,%f,%f,%f\n" (time_now ()) btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price;  (* Write the formatted timestamp, prices of all coins *)
-  close_out oc  (* Close the CSV file *)
-
+  ignore (conn#exec query)
 
 (* Fetch prices for multiple symbols concurrently *)
 let fetch_multiple_prices symbols =
@@ -36,7 +31,7 @@ let fetch_multiple_prices symbols =
   ) symbols
 
 (* Recursively fetch prices every specified interval (in seconds) *)
-let rec fetch_repeatedly symbols interval =
+let rec fetch_repeatedly symbols conn interval =
   fetch_multiple_prices symbols >>= fun prices ->  (* Fetch prices for all symbols *)
   List.iter (fun (symbol, price) ->
     Printf.printf "Current price of %s: %f\n" symbol price  (* Print the fetched price for each symbol *)
@@ -48,12 +43,20 @@ let rec fetch_repeatedly symbols interval =
   let ada_price = List.assoc "ADAUSDT" prices in
   let xrp_price = List.assoc "XRPUSDT" prices in
   let dot_price = List.assoc "DOTUSDT" prices in
-  write_prices_to_csv "prices.csv" btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price;  (* Log the fetched prices to a CSV file *)
+  insert_prices_to_db conn btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price;  (* Insert the fetched prices into PostgreSQL *)
   Lwt_unix.sleep interval >>= fun () ->  (* Wait for the specified interval before repeating *)
-  fetch_repeatedly symbols interval  (* Recur to fetch prices again *)
-
+  fetch_repeatedly symbols conn interval  (* Recur to fetch prices again *)
 
 (* Main function to start fetching data *)
 let () =
-let symbols = ["BTCUSDT"; "ETHUSDT"; "SOLUSDT"; "BNBUSDT"; "ADAUSDT"; "XRPUSDT"; "DOTUSDT"]  in  (* List of symbols to fetch prices for *)
-  Lwt_main.run (fetch_repeatedly symbols 5.0)  (* Start fetching prices every 5 seconds *)
+  let symbols = ["BTCUSDT"; "ETHUSDT"; "SOLUSDT"; "BNBUSDT"; "ADAUSDT"; "XRPUSDT"; "DOTUSDT"] in  (* List of symbols to fetch prices for *)
+  let conninfo =
+    let host = Sys.getenv_opt "DB_HOST" |> Option.value ~default:"localhost" in
+    let dbname = Sys.getenv_opt "DB_NAME" |> Option.value ~default:"crypto_data" in
+    let user = Sys.getenv_opt "DB_USER" |> Option.value ~default:"postgres" in
+    let password = Sys.getenv_opt "DB_PASSWORD" |> Option.value ~default:"password" in
+    Printf.sprintf "host=%s dbname=%s user=%s password=%s" host dbname user password
+  in
+  let conn = new connection ~conninfo () in
+  Lwt_main.run (fetch_repeatedly symbols conn 5.0);  (* Start fetching prices every 5 seconds *)
+  conn#finish  (* Close the PostgreSQL connection when done *)
