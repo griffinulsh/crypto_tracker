@@ -1,0 +1,16 @@
+# dune exec ./bin/main.exe
+# OCAMLPARAM: unset
+# Shared cache: disabled
+# Shared cache location: /Users/griffinulsh/.cache/dune/db
+# Workspace root: /Users/griffinulsh/Desktop/GitHub/crypto_tracker
+# Auto-detected concurrency: 10
+# Dune context:
+#  { name = "default"
+#  ; kind = "default"
+#  ; profile = Dev
+#  ; merlin = true
+#  ; fdo_target_exe = None
+#  ; build_dir = In_build_dir "default"
+#  ; instrument_with = []
+#  }
+$ /Users/griffinulsh/.opam/default/bin/ocamlc.opt -config > /var/folders/w2/5w3shfnd5v99snv7z_rbkrq00000gn/T/dune_af9aa4_output

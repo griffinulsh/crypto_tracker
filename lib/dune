@@ -1,0 +1,3 @@
+(library
+ (name crypto_tracker)
+ (libraries cohttp-lwt-unix lwt yojson))

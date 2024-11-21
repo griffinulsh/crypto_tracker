@@ -1,0 +1,8 @@
+lib: [
+  "_build/install/default/lib/crypto_tracker/META"
+  "_build/install/default/lib/crypto_tracker/dune-package"
+  "_build/install/default/lib/crypto_tracker/opam"
+]
+bin: [
+  "_build/install/default/bin/crypto_tracker"
+]

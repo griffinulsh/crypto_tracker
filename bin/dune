@@ -1,0 +1,4 @@
+(executable
+ (public_name crypto_tracker)
+ (name main)
+ (libraries crypto_tracker cohttp-lwt-unix lwt yojson))
