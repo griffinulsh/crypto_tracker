@@ -17,11 +17,13 @@ let fetch_binance_price symbol =
 
 (* Insert the fetched prices into PostgreSQL database *)
 let insert_prices_to_db conn btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price =
-  let query = Printf.sprintf
-    "INSERT INTO prices (timestamp, btc_price, eth_price, sol_price, bnb_price, ada_price, xrp_price, dot_price) VALUES (NOW(), %f, %f, %f, %f, %f, %f, %f);"
-    btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price
-  in
-  ignore (conn#exec query)
+  Lwt.return (  (* Wrap the database operation with Lwt *)
+    let query = Printf.sprintf
+      "INSERT INTO prices (timestamp, btc_price, eth_price, sol_price, bnb_price, ada_price, xrp_price, dot_price) VALUES (NOW(), %f, %f, %f, %f, %f, %f, %f);"
+      btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price
+    in
+    ignore (conn#exec query)
+  )
 
 (* Fetch prices for multiple symbols concurrently *)
 let fetch_multiple_prices symbols =
@@ -43,7 +45,7 @@ let rec fetch_repeatedly symbols conn interval =
   let ada_price = List.assoc "ADAUSDT" prices in
   let xrp_price = List.assoc "XRPUSDT" prices in
   let dot_price = List.assoc "DOTUSDT" prices in
-  insert_prices_to_db conn btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price;  (* Insert the fetched prices into PostgreSQL *)
+  insert_prices_to_db conn btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price >>= fun () ->
   Lwt_unix.sleep interval >>= fun () ->  (* Wait for the specified interval before repeating *)
   fetch_repeatedly symbols conn interval  (* Recur to fetch prices again *)
 
