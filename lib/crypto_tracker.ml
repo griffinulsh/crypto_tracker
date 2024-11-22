@@ -57,7 +57,6 @@ let () =
     let password = Sys.getenv_opt "DB_PASSWORD" |> Option.value ~default:"password" in
     Printf.sprintf "host=%s dbname=%s user=%s password=%s" host dbname user password
   in
-  (* Create the connection and pass it to the fetch loop *)
   let conn = new connection ~conninfo () in
   Lwt_main.run (fetch_repeatedly symbols conn 5.0);
   conn#finish  (* Close the PostgreSQL connection when done *)
