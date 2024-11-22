@@ -15,15 +15,15 @@ let fetch_binance_price symbol =
       Printf.printf "Error: 'price' field missing or null for symbol: %s\n" symbol;
       nan  (* Return NaN to indicate failure *)
 
-(* Insert the fetched prices into PostgreSQL database *)
+(* Insert the fetched prices into PostgreSQL database using Lwt_preemptive to avoid blocking *)
 let insert_prices_to_db conn btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price =
-  Lwt.return (  (* Wrap the database operation with Lwt *)
+  Lwt_preemptive.detach (fun () ->
     let query = Printf.sprintf
       "INSERT INTO prices (timestamp, btc_price, eth_price, sol_price, bnb_price, ada_price, xrp_price, dot_price) VALUES (NOW(), %f, %f, %f, %f, %f, %f, %f);"
       btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price
     in
     ignore (conn#exec query)
-  )
+  ) ()
 
 (* Fetch prices for multiple symbols concurrently *)
 let fetch_multiple_prices symbols =
@@ -60,5 +60,5 @@ let () =
     Printf.sprintf "host=%s dbname=%s user=%s password=%s" host dbname user password
   in
   let conn = new connection ~conninfo () in
-  Lwt_main.run (fetch_repeatedly symbols conn 5.0);  (* Start fetching prices every 5 seconds *)
+  Lwt_main.run (fetch_repeatedly symbols conn 5.0);
   conn#finish  (* Close the PostgreSQL connection when done *)
