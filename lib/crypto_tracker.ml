@@ -62,3 +62,4 @@ let () =
   let conn = new connection ~conninfo () in
   Lwt_main.run (fetch_repeatedly symbols conn 5.0);
   conn#finish  (* Close the PostgreSQL connection when done *)
+(* closing comment *)
