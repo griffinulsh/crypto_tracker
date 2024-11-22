@@ -33,7 +33,8 @@ let fetch_multiple_prices symbols =
   ) symbols
 
 (* Recursively fetch prices every specified interval (in seconds) *)
-let rec fetch_repeatedly symbols conn interval =
+let rec fetch_repeatedly symbols conninfo interval =
+  Lwt_preemptive.detach (fun () -> new connection ~conninfo ()) () >>= fun conn ->
   fetch_multiple_prices symbols >>= fun prices ->  (* Fetch prices for all symbols *)
   List.iter (fun (symbol, price) ->
     Printf.printf "Current price of %s: %f\n" symbol price  (* Print the fetched price for each symbol *)
@@ -47,7 +48,7 @@ let rec fetch_repeatedly symbols conn interval =
   let dot_price = List.assoc "DOTUSDT" prices in
   insert_prices_to_db conn btc_price eth_price sol_price bnb_price ada_price xrp_price dot_price >>= fun () ->
   Lwt_unix.sleep interval >>= fun () ->  (* Wait for the specified interval before repeating *)
-  fetch_repeatedly symbols conn interval  (* Recur to fetch prices again *)
+  fetch_repeatedly symbols conninfo interval  (* Recur to fetch prices again *)
 
 (* Main function to start fetching data *)
 let () =
@@ -59,8 +60,4 @@ let () =
     let password = Sys.getenv_opt "DB_PASSWORD" |> Option.value ~default:"password" in
     Printf.sprintf "host=%s dbname=%s user=%s password=%s" host dbname user password
   in
-  (* Create the connection and pass it to the fetch loop *)
-  Lwt_main.run (
-    Lwt_preemptive.detach (fun () -> new connection ~conninfo ()) () >>= fun conn ->
-    fetch_repeatedly symbols conn 5.0
-  );
+  Lwt_main.run (fetch_repeatedly symbols conninfo 5.0)
