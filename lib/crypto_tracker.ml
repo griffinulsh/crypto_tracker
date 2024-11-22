@@ -59,6 +59,8 @@ let () =
     let password = Sys.getenv_opt "DB_PASSWORD" |> Option.value ~default:"password" in
     Printf.sprintf "host=%s dbname=%s user=%s password=%s" host dbname user password
   in
-  Lwt_preemptive.detach (fun () -> new connection ~conninfo ()) () >>= fun conn ->
-  Lwt_main.run (fetch_repeatedly symbols conn 5.0);
-  conn#finish  (* Close the PostgreSQL connection when done *)
+  (* Create the connection and pass it to the fetch loop *)
+  Lwt_main.run (
+    Lwt_preemptive.detach (fun () -> new connection ~conninfo ()) () >>= fun conn ->
+    fetch_repeatedly symbols conn 5.0
+  );
