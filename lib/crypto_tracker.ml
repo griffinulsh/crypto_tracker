@@ -60,5 +60,5 @@ let () =
     Printf.sprintf "host=%s dbname=%s user=%s password=%s" host dbname user password
   in
   let conn = Lwt_preemptive.detach (fun () -> new connection ~conninfo ()) () |> Lwt_main.run in
-  Lwt_main.run (fetch_repeatedly symbols conn 5.0);
+  let _ = Lwt_main.run (fetch_repeatedly symbols conn 5.0) in
   conn#finish  (* Close the PostgreSQL connection when done *)
